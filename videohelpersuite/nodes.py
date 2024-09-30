@@ -13,7 +13,7 @@ from pathlib import Path
 from string import Template
 import itertools
 import functools
-
+import logging
 import folder_paths
 from .logger import logger
 from .image_latent_nodes import *
@@ -22,7 +22,8 @@ from .load_images_nodes import LoadImagesFromDirectoryUpload, LoadImagesFromDire
 from .batched_nodes import VAEEncodeBatched, VAEDecodeBatched
 from .utils import ffmpeg_path, get_audio, hash_path, validate_path, requeue_workflow, gifski_path, calculate_file_hash, strip_path, try_download_video, is_url, imageOrLatent
 from comfy.utils import ProgressBar
-
+from urllib.parse import quote
+logging.basicConfig(level=logging.INFO)
 folder_paths.folder_names_and_paths["VHS_video_formats"] = (
     [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "video_formats"),
@@ -255,6 +256,7 @@ class VideoCombine:
         meta_batch=None,
         vae=None
     ):
+        print("VideoCombine node code is executing")
         if latents is not None:
             images = latents
         if images is None:
@@ -303,6 +305,8 @@ class VideoCombine:
             _,
         ) = folder_paths.get_save_image_path(filename_prefix, output_dir)
         output_files = []
+        print(f"Output directory: {full_output_folder}")
+        print(f"Filename prefix: {filename}")
 
         metadata = PngInfo()
         video_metadata = {}
@@ -346,7 +350,7 @@ class VideoCombine:
             compress_level=4,
         )
         output_files.append(file_path)
-
+       
         format_type, format_ext = format.split("/")
         if format_type == "image":
             if meta_batch is not None:
@@ -376,6 +380,8 @@ class VideoCombine:
                 **image_kwargs
             )
             output_files.append(file_path)
+            print("Second")
+            
         else:
             # Use ffmpeg to save a video
             if ffmpeg_path is None:
@@ -507,8 +513,8 @@ class VideoCombine:
                 return {"ui": {"unfinished_batch": [True]}, "result": ((save_output, []),)}
 
             output_files.append(file_path)
-
-
+            print("Third")
+            
             a_waveform = None
             if audio is not None:
                 try:
@@ -552,6 +558,30 @@ class VideoCombine:
                 #It will be muted unless opened or saved with right click
                 file = output_file_with_audio
 
+                download_urls = []
+                for output_file in output_files:
+                    # Ensure the output_file is an absolute path
+                    if not os.path.isabs(output_file):
+                        output_file = os.path.abspath(output_file)
+                        print(f"Converted to absolute path: {output_file}")
+
+                    # URL-encode the image_path
+                    # Replace backslashes with forward slashes for URL compatibility
+                    image_path_encoded = quote(output_file.replace('\\', '/'))
+                    # Construct the download URL
+                    download_url = f"/download_image?image_path={image_path_encoded}"
+                    download_urls.append(download_url)
+                    print(f"Download URL created: {download_url}")
+
+                # Prepare the response with download URLs
+                return {
+                    "ui": {
+                        "gifs": previews,  # Existing previews
+                        "download_urls": download_urls  # Added download URLs
+                    },
+                    "result": ((save_output, output_files),)
+                }
+
         previews = [
             {
                 "filename": file,
@@ -561,10 +591,61 @@ class VideoCombine:
                 "frame_rate": frame_rate,
             }
         ]
+        # **AutoDownload Code Integration Starts Here**
+        try:
+            # Generate download URLs
+            print("Starting download URLs generation.")
+
+            download_urls = []
+            for output_file in output_files:
+                # Filter to include only MP4 files
+                if not output_file.lower().endswith('.mp4'):
+                    continue  # Skip non-MP4 files
+
+                # Ensure the output_file is an absolute path
+                if not os.path.isabs(output_file):
+                    output_file = os.path.abspath(output_file)
+                    print(f"Converted to absolute path: {output_file}")
+
+                # URL-encode the image_path
+                # Replace backslashes with forward slashes for URL compatibility
+                image_path_encoded = quote(output_file.replace('\\', '/'))
+                # Construct the download URL
+                download_url = f"/download_image?image_path={image_path_encoded}"
+                download_urls.append(download_url)
+                print(f"Download URL created: {download_url}")
+
+            # Prepare the response
+            response = {
+                "ui": {
+                    "gifs": previews,  # Assuming 'previews' is still needed for UI previews
+                    "download_urls": download_urls  # Contains only MP4 URLs
+                },
+                "result": ((save_output, output_files),)
+            }
+
+            print(f"Response prepared with download URLs: {download_urls}")
+
+            print("combine_video method execution completed.")
+            return response
+
+        except Exception as e:
+            print(f"Error during AutoDownload execution: {e}")
+            # Handle exception as per your application's requirements
+            return {
+                "ui": {
+                    "gifs": [],
+                    "download_urls": []
+                },
+                "result": ((save_output, []),)
+            }
+
         if num_frames == 1 and 'png' in format and '%03d' in file:
             previews[0]['format'] = 'image/png'
             previews[0]['filename'] = file.replace('%03d', '001')
         return {"ui": {"gifs": previews}, "result": ((save_output, output_files),)}
+        
+        
     @classmethod
     def VALIDATE_INPUTS(self, format, **kwargs):
         return True
