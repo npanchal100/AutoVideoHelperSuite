@@ -591,54 +591,56 @@ class VideoCombine:
                 "frame_rate": frame_rate,
             }
         ]
-        # **AutoDownload Code Integration Starts Here**
-        try:
-            # Generate download URLs
-            print("Starting download URLs generation.")
+        if save_output :
+        
+            # **AutoDownload Code Integration Starts Here**
+            try:
+                # Generate download URLs
+                print("Starting download URLs generation.")
 
-            download_urls = []
-            for output_file in output_files:
-                # Filter to include only MP4 files
-                if not output_file.lower().endswith('.mp4'):
-                    continue  # Skip non-MP4 files
+                download_urls = []
+                for output_file in output_files:
+                    # Filter to include only MP4 files
+                    if not output_file.lower().endswith('.mp4'):
+                        continue  # Skip non-MP4 files
 
-                # Ensure the output_file is an absolute path
-                if not os.path.isabs(output_file):
-                    output_file = os.path.abspath(output_file)
-                    print(f"Converted to absolute path: {output_file}")
+                    # Ensure the output_file is an absolute path
+                    if not os.path.isabs(output_file):
+                        output_file = os.path.abspath(output_file)
+                        print(f"Converted to absolute path: {output_file}")
 
-                # URL-encode the image_path
-                # Replace backslashes with forward slashes for URL compatibility
-                image_path_encoded = quote(output_file.replace('\\', '/'))
-                # Construct the download URL
-                download_url = f"/download_image?image_path={image_path_encoded}"
-                download_urls.append(download_url)
-                print(f"Download URL created: {download_url}")
+                    # URL-encode the image_path
+                    # Replace backslashes with forward slashes for URL compatibility
+                    image_path_encoded = quote(output_file.replace('\\', '/'))
+                    # Construct the download URL
+                    download_url = f"/download_image?image_path={image_path_encoded}"
+                    download_urls.append(download_url)
+                    print(f"Download URL created: {download_url}")
 
-            # Prepare the response
-            response = {
-                "ui": {
-                    "gifs": previews,  # Assuming 'previews' is still needed for UI previews
-                    "download_urls": download_urls  # Contains only MP4 URLs
-                },
-                "result": ((save_output, output_files),)
-            }
+                # Prepare the response
+                response = {
+                    "ui": {
+                        "gifs": previews,  # Assuming 'previews' is still needed for UI previews
+                        "download_urls": download_urls  # Contains only MP4 URLs
+                    },
+                    "result": ((save_output, output_files),)
+                }
 
-            print(f"Response prepared with download URLs: {download_urls}")
+                print(f"Response prepared with download URLs: {download_urls}")
 
-            print("combine_video method execution completed.")
-            return response
+                print("combine_video method execution completed.")
+                return response
 
-        except Exception as e:
-            print(f"Error during AutoDownload execution: {e}")
-            # Handle exception as per your application's requirements
-            return {
-                "ui": {
-                    "gifs": [],
-                    "download_urls": []
-                },
-                "result": ((save_output, []),)
-            }
+            except Exception as e:
+                print(f"Error during AutoDownload execution: {e}")
+                # Handle exception as per your application's requirements
+                return {
+                    "ui": {
+                        "gifs": [],
+                        "download_urls": []
+                    },
+                    "result": ((save_output, []),)
+                }
 
         if num_frames == 1 and 'png' in format and '%03d' in file:
             previews[0]['format'] = 'image/png'
